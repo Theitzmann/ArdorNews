@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "ARDOR",
+    "slug": "ardor-news",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/logo.jpeg",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/logo.jpeg",
+      "resizeMode": "contain",
+      "backgroundColor": "#1C2033"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.ardor.news"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.jpeg",
+        "backgroundColor": "#1C2033"
+      },
+      "package": "com.ardor.news"
+    },
+    "web": {
+      "favicon": "./assets/logo.jpeg"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-av"
+    ],
+    "scheme": "ardor",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
