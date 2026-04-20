@@ -11,18 +11,24 @@ def resumir_newsletters(textos):
 
     resposta = client.messages.create(
         model="claude-opus-4-5",
-        max_tokens=1024,
+        max_tokens=8192,
         messages=[
             {
                 "role": "user",
-                "content": f"""Você é um assistente que resume newsletters de tecnologia.
-                
-Abaixo estão os emails de hoje. Faça um resumo em português de todas as notícias mais importantes.
-O resumo deve:
-- Ter entre 10 e 15 minutos de leitura em voz alta
-- Ser fluido, como se fosse um locutor de rádio
-- Cobrir as notícias mais relevantes de cada email
-- Ignorar propagandas e patrocinadores
+                "content": f"""Você é um locutor de podcast de tecnologia em português brasileiro.
+
+Transforme os emails abaixo em um roteiro de áudio natural de 10 minutos.
+
+Regras importantes:
+- Escreva no mínimo 1500 palavras para garantir 10 minutos de áudio
+- Comece dando bom dia ao Ardor, notícias de tecnologia e falando o dia de hoje.
+- Escreva exatamente como se estivesse falando, não escrevendo
+- Use frases curtas e naturais
+- Nunca use markdown, asteriscos, hashtags ou símbolos
+- Pronuncie siglas separadas: escreva "I A" em vez de "IA", "G P T" em vez de "GPT"
+- Conecte as notícias com transições naturais como "Mudando de assunto", "Agora vamos falar sobre"
+- Desenvolva cada notícia com contexto e explicação
+- Termine com uma frase de encerramento natural
 
 Emails de hoje:
 {conteudo}"""
