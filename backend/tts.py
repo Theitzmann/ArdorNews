@@ -1,16 +1,30 @@
 import os
 import re
+import json
 from datetime import datetime
 from google.cloud import texttospeech
+from google.oauth2 import service_account
 from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
-SERVICE_ACCOUNT_PATH = os.path.join(BASE_DIR, 'secrets', 'tts-service-account.json')
 LIMITE = 4500
 
-client = texttospeech.TextToSpeechClient.from_service_account_file(SERVICE_ACCOUNT_PATH)
+def criar_cliente_tts():
+    credenciais_json = os.getenv("GOOGLE_TTS_CREDENTIALS")
+    if credenciais_json:
+        info = json.loads(credenciais_json)
+        credenciais = service_account.Credentials.from_service_account_info(
+            info,
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        return texttospeech.TextToSpeechClient(credentials=credenciais)
+    return texttospeech.TextToSpeechClient.from_service_account_file(
+        os.path.join(BASE_DIR, 'secrets', 'tts-service-account.json')
+    )
+
+client = criar_cliente_tts()
 
 def get_output_path():
     hoje = datetime.now().strftime('%Y-%m-%d')
