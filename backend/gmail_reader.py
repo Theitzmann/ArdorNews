@@ -1,4 +1,5 @@
 import os
+import json
 import base64
 import re
 from google.oauth2.credentials import Credentials
@@ -9,11 +10,15 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TOKEN_PATH = os.path.join(BASE_DIR, 'secrets', 'token.json')
 
 def conectar_gmail():
-    creds = Credentials.from_authorized_user_file(TOKEN_PATH, SCOPES)
+    token_json = os.getenv("GMAIL_TOKEN")
+    if token_json:
+        info = json.loads(token_json)
+        creds = Credentials.from_authorized_user_info(info, SCOPES)
+    else:
+        creds = Credentials.from_authorized_user_file(TOKEN_PATH, SCOPES)
     return build('gmail', 'v1', credentials=creds)
 
 def limpar_texto(texto):
-    # Remove caracteres invisíveis e espaços extras
     texto = re.sub(r'[\u200c\u200b\xa0]', ' ', texto)
     texto = re.sub(r' +', ' ', texto)
     texto = re.sub(r'\n{3,}', '\n\n', texto)
@@ -50,6 +55,3 @@ def ler_newsletters():
 
     print(f"✅ {len(textos)} newsletters lidas!")
     return textos
-
-if __name__ == "__main__":
-    ler_newsletters()
