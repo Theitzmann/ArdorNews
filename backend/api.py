@@ -2,7 +2,6 @@ import os
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from datetime import datetime
-from main import gerar_audio_do_dia
 
 app = FastAPI()
 
@@ -34,11 +33,3 @@ def audio_do_dia():
 def listar_audios():
     arquivos = sorted(os.listdir(AUDIO_DIR), reverse=True)
     return {"audios": arquivos}
-
-@app.post("/gerar")
-def gerar():
-    try:
-        caminho = gerar_audio_do_dia()
-        return {"sucesso": True, "caminho": caminho}
-    except Exception as e:
-        return {"sucesso": False, "erro": str(e)}
