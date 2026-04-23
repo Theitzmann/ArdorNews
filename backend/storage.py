@@ -5,10 +5,13 @@ from dotenv import load_dotenv
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
-supabase = create_client(
-    os.getenv("SUPABASE_URL"),
-    os.getenv("SUPABASE_KEY")
-)
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+print(f"🔍 SUPABASE_URL: {SUPABASE_URL}")
+print(f"🔍 SUPABASE_KEY: {SUPABASE_KEY[:20] if SUPABASE_KEY else 'None'}")
+
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 BUCKET = "audios"
 
