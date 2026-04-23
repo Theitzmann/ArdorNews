@@ -7,10 +7,6 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-
-print(f"🔍 SUPABASE_URL: {SUPABASE_URL}")
-print(f"🔍 SUPABASE_KEY: {SUPABASE_KEY[:20] if SUPABASE_KEY else 'None'}")
-
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 BUCKET = "audios"
