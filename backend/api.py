@@ -1,35 +1,30 @@
 import os
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import RedirectResponse
 from datetime import datetime
+from storage import listar_audios, url_audio
 
 app = FastAPI()
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-AUDIO_DIR = os.path.join(BASE_DIR, 'audio')
-
-def get_audio_hoje():
+def nome_audio_hoje():
     hoje = datetime.now().strftime('%Y-%m-%d')
-    caminho = os.path.join(AUDIO_DIR, f'{hoje}.mp3')
-    if os.path.exists(caminho):
-        return caminho
-    return None
+    return f'{hoje}.mp3'
 
 @app.get("/status")
 def status():
-    audio = get_audio_hoje()
-    if audio:
+    audios = listar_audios()
+    if nome_audio_hoje() in audios:
         return {"pronto": True}
     return {"pronto": False, "mensagem": "Notícias ainda chegando... 11:00 libera!"}
 
 @app.get("/audio")
 def audio_do_dia():
-    audio = get_audio_hoje()
-    if audio:
-        return FileResponse(audio, media_type="audio/mpeg")
+    audios = listar_audios()
+    nome = nome_audio_hoje()
+    if nome in audios:
+        return RedirectResponse(url=url_audio(nome))
     return {"erro": "Áudio de hoje ainda não está pronto"}
 
 @app.get("/lista")
-def listar_audios():
-    arquivos = sorted(os.listdir(AUDIO_DIR), reverse=True)
-    return {"audios": arquivos}
+def listar():
+    return {"audios": listar_audios()}
