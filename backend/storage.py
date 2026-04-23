@@ -15,11 +15,19 @@ BUCKET = "audios"
 def upload_audio(caminho_local):
     nome_arquivo = os.path.basename(caminho_local)
     with open(caminho_local, 'rb') as f:
-        supabase.storage.from_(BUCKET).upload(
-            nome_arquivo,
-            f,
-            {"content-type": "audio/mpeg"}
-        )
+        try:
+            supabase.storage.from_(BUCKET).upload(
+                nome_arquivo,
+                f,
+                {"content-type": "audio/mpeg"}
+            )
+        except Exception:
+            f.seek(0)
+            supabase.storage.from_(BUCKET).update(
+                nome_arquivo,
+                f,
+                {"content-type": "audio/mpeg"}
+            )
     url = supabase.storage.from_(BUCKET).get_public_url(nome_arquivo)
     print(f"☁️ Áudio enviado para o Supabase: {url}")
     return url

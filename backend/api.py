@@ -2,6 +2,7 @@ import os
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from datetime import datetime
+print("🚀 API iniciando...")
 from storage import listar_audios, url_audio
 
 app = FastAPI()
