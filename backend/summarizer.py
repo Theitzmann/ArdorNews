@@ -2,12 +2,31 @@ import os
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
-load_dotenv()
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
+def gerar_titulo(conteudo):
+    resposta = client.messages.create(
+        model="claude-opus-4-5",
+        max_tokens=100,
+        messages=[
+            {
+                "role": "user",
+                "content": f"""Com base nos emails abaixo, gere um título jornalístico curto em português com no máximo 7 palavras resumindo as principais notícias do dia. Use siglas normalmente (GPT, IA, etc). Responda apenas com o título, sem pontuação no final.
+
+Emails:
+{conteudo[:3000]}"""
+            }
+        ]
+    )
+    return resposta.content[0].text.strip()
+
 def resumir_newsletters(textos):
     conteudo = "\n\n---\n\n".join(textos)
+
+    titulo = gerar_titulo(conteudo)
 
     resposta = client.messages.create(
         model="claude-opus-4-5",
@@ -21,7 +40,7 @@ Transforme os emails abaixo em um roteiro de áudio natural de 10 minutos.
 
 Regras importantes:
 - Escreva no mínimo 1500 palavras para garantir 10 minutos de áudio
-- Comece dando bom dia ao Ardor, notícias de tecnologia e falando o dia de hoje.
+- Comece dando bom dia ao Ardor, notícias de tecnologia e falando o dia de hoje
 - Escreva exatamente como se estivesse falando, não escrevendo
 - Use frases curtas e naturais
 - Nunca use markdown, asteriscos, hashtags ou símbolos
@@ -36,10 +55,11 @@ Emails de hoje:
         ]
     )
 
-    return resposta.content[0].text
+    return titulo, resposta.content[0].text
 
 if __name__ == "__main__":
     from gmail_reader import ler_newsletters
     textos = ler_newsletters()
-    resumo = resumir_newsletters(textos)
-    print(resumo)
+    titulo, resumo = resumir_newsletters(textos)
+    print(f"Título: {titulo}")
+    print(resumo[:500])

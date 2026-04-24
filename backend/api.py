@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from datetime import datetime
-from storage import listar_audios, url_audio
+from storage import listar_audios, url_audio, buscar_titulo
 
 app = FastAPI()
 
@@ -27,4 +27,9 @@ def audio_do_dia():
 
 @app.get("/lista")
 def listar():
-    return {"audios": listar_audios()}
+    audios = listar_audios()
+    resultado = []
+    for nome in audios:
+        titulo = buscar_titulo(nome)
+        resultado.append({"nome": nome, "titulo": titulo})
+    return {"audios": resultado}
