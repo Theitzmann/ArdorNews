@@ -59,6 +59,33 @@ Emails de hoje:
 
     return titulo, resposta.content[0].text
 
+
+def gerar_bullets(textos):
+    conteudo = "\n\n---\n\n".join(textos)
+
+    resposta = client.messages.create(
+        model="claude-opus-4-5",
+        max_tokens=300,
+        messages=[
+            {
+                "role": "user",
+                "content": f"""Com base nos emails abaixo, gere exatamente 3 bullets das notícias mais importantes do dia.
+
+Formato obrigatório (uma por linha, sem numeração):
+- [notícia em uma frase curta e direta, máximo 10 palavras]
+- [notícia em uma frase curta e direta, máximo 10 palavras]
+- [notícia em uma frase curta e direta, máximo 10 palavras]
+
+Responda apenas com os 3 bullets, nada mais.
+
+Emails:
+{conteudo[:3000]}"""
+            }
+        ]
+    )
+
+    return resposta.content[0].text.strip()
+
 if __name__ == "__main__":
     from gmail_reader import ler_newsletters
     textos = ler_newsletters()
