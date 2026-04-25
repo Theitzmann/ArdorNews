@@ -25,6 +25,14 @@ def audio_do_dia():
         return RedirectResponse(url=url_audio(nome))
     return {"erro": "Áudio de hoje ainda não está pronto"}
 
+@app.get("/transcricao/{nome}")
+def transcricao(nome: str):
+    from storage import buscar_transcricao
+    texto = buscar_transcricao(nome)
+    if texto:
+        return {"transcricao": texto}
+    return {"erro": "Transcrição não encontrada"}
+
 @app.get("/lista")
 def listar():
     audios = listar_audios()
