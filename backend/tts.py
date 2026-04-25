@@ -56,54 +56,77 @@ def limpar_markdown(texto):
     return texto.strip()
 
 def limpar_para_legenda(texto):
-    # Siglas com espaços entre letras maiúsculas (ex: O T O F → OTOF)
-    texto = re.sub(r'\b([A-Z]) ([A-Z]) ([A-Z]) ([A-Z])\b', r'\1\2\3\4', texto)
-    texto = re.sub(r'\b([A-Z]) ([A-Z]) ([A-Z])\b', r'\1\2\3', texto)
-    texto = re.sub(r'\b([A-Z]) ([A-Z])\b', r'\1\2', texto)
+    # Uniformizar "por cento" para "%"
+    texto = texto.replace(' por cento', ' %')
 
-    # Expressões numéricas comuns
+    # Substituições específicas
     substituicoes = {
-        'S&P quinhentos': 'S&P 500',
+        'S e P quinhentos': 'S&P 500',
         'Se P quinhentos': 'S&P 500',
+        'S&P quinhentos': 'S&P 500',
         'G um': 'G1',
-        'dois mil e vinte e seis': '2026',
-        'dois mil e vinte e cinco': '2025',
-        'dois mil e dezoito': '2018',
-        'dois mil e vinte e quatro': '2024',
-        'dois mil e vinte e três': '2023',
-        'mil novecentos e noventa': '1990',
-        'mil novecentos e oitenta': '1980',
-        'mil novecentos e setenta': '1970',
-        'mil novecentos e sessenta': '1960',
-        'mil novecentos e cinquenta e três': '1953',
-        'mil novecentos e cinquenta e quatro': '1954',
+        'U S I M cinco': 'USIM5',
+        'USIM cinco': 'USIM5',
+        'S A F': 'SAF',
         'vinte e cinco de abril': '25 de abril',
         'primeiro de janeiro': '1º de janeiro',
     }
-    for original, novo in substituicoes.items():
+    for original, novo in sorted(substituicoes.items(), key=lambda x: len(x[0]), reverse=True):
         texto = texto.replace(original, novo)
 
-    # Números decimais por extenso → algarismos
-    # Padrão: "X, por extenso" onde X já é número
-    decimais = {
-        'trinta e três': '33',
-        'sessenta e três': '63',
-        'sessenta e quatro': '64',
-        'cinquenta e cinco': '55',
-        'cinquenta e seis': '56',
-        'oitenta': '80',
-        'cinquenta': '50',
-        'vinte e cinco': '25',
-        'vinte': '20',
-        'dez': '10',
-        'cinco': '05',
-        'um': '01',
-    }
-    for extenso, numero in decimais.items():
-        texto = re.sub(rf'(\d+), {extenso}', rf'\1,{numero}', texto)
+    # Siglas com espaços entre letras maiúsculas (ex: O T O F → OTOF)
+    texto = re.sub(r'\b([A-Z])(?: ([A-Z]))+\b', lambda m: m.group(0).replace(' ', ''), texto)
 
-    # Remove "por cento" e substitui por %
-    texto = texto.replace(' por cento', '%')
+    # Construir dicionário abrangente de números por extenso
+    numeros_base = {
+        'zero': 0, 'um': 1, 'dois': 2, 'três': 3, 'quatro': 4, 'cinco': 5,
+        'seis': 6, 'sete': 7, 'oito': 8, 'nove': 9, 'dez': 10,
+        'onze': 11, 'doze': 12, 'treze': 13, 'catorze': 14, 'quatorze': 14,
+        'quinze': 15, 'dezesseis': 16, 'dezessete': 17, 'dezoito': 18, 'dezenove': 19,
+        'vinte': 20, 'trinta': 30, 'quarenta': 40, 'cinquenta': 50,
+        'sessenta': 60, 'setenta': 70, 'oitenta': 80, 'noventa': 90,
+        'cem': 100
+    }
+    
+    mapa_numeros = {k: str(v) for k, v in numeros_base.items()}
+    
+    dezenas = ['vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa']
+    unidades = ['um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove']
+    for i, d in enumerate(dezenas):
+        d_val = (i + 2) * 10
+        for j, u in enumerate(unidades):
+            u_val = j + 1
+            mapa_numeros[f"{d} e {u}"] = str(d_val + u_val)
+            
+    mapa_numeros.update({
+        'duzentos': '200', 'trezentos': '300', 'quatrocentos': '400',
+        'quinhentos': '500', 'seiscentos': '600', 'setecentos': '700',
+        'oitocentos': '800', 'novecentos': '900', 'mil': '1000'
+    })
+
+    # Construir mapa de anos (1900 a 2030)
+    mapa_anos = {'mil novecentos': '1900', 'dois mil': '2000'}
+    for k, v in mapa_numeros.items():
+        if v.isdigit() and 1 <= int(v) <= 99:
+            mapa_anos[f"mil novecentos e {k}"] = str(1900 + int(v))
+        if v.isdigit() and 1 <= int(v) <= 30:
+            mapa_anos[f"dois mil e {k}"] = str(2000 + int(v))
+
+    # Converter anos por extenso para algarismos
+    for extenso, algarismo in sorted(mapa_anos.items(), key=lambda x: len(x[0]), reverse=True):
+        texto = re.sub(rf'\b{extenso}\b', algarismo, texto)
+
+    # Converter decimais ("X, extenso %") e números inteiros ("extenso %")
+    for extenso, algarismo in sorted(mapa_numeros.items(), key=lambda x: len(x[0]), reverse=True):
+        # Para decimais: adiciona zero à esquerda se < 10
+        dec_val = algarismo.zfill(2) if int(algarismo) < 100 else algarismo
+        texto = re.sub(rf'(\d+),\s*{extenso}\s*%', rf'\1,{dec_val}%', texto)
+        
+        # Para inteiros com %
+        texto = re.sub(rf'\b{extenso}\s*%', rf'{algarismo}%', texto)
+
+    # Remover espaço antes do símbolo de % para manter formatação (ex: "37 %" -> "37%")
+    texto = re.sub(r'(\d)\s+%', r'\1%', texto)
 
     return texto
 

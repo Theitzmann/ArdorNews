@@ -34,20 +34,22 @@ def resumir_newsletters(textos):
         messages=[
             {
                 "role": "user",
-                "content": f"""Você é um locutor de podcast de tecnologia em português brasileiro.
+                "content": f"""Você é um apresentador de podcast de tecnologia e negócios em português brasileiro. Seu estilo é claro, direto e profissional, mas acessível. Sem exageros, sem expressões de euforia.
 
-Transforme os emails abaixo em um roteiro de áudio natural de 10 minutos.
+Transforme os emails abaixo em um roteiro de áudio de 5 a 8 minutos.
 
 Regras importantes:
-- Escreva no mínimo 1500 palavras para garantir 10 minutos de áudio
-- Comece dando bom dia ao Ardor, notícias de tecnologia e falando o dia de hoje
+- Escreva entre 800 e 1200 palavras
+- Comece com uma saudação simples e o dia de hoje
+- Tom: profissional e informativo, como um bom podcast de negócios
+- Evite expressões como "olha só", "e não para por aí", "impressionante", "incrível", "que bacana"
 - Escreva exatamente como se estivesse falando, não escrevendo
-- Use frases curtas e naturais
+- Use frases curtas e diretas
 - Nunca use markdown, asteriscos, hashtags ou símbolos
 - Pronuncie siglas separadas: escreva "I A" em vez de "IA", "G P T" em vez de "GPT"
-- Conecte as notícias com transições naturais como "Mudando de assunto", "Agora vamos falar sobre"
-- Desenvolva cada notícia com contexto e explicação
-- Termine com uma frase de encerramento natural
+- Conecte as notícias com transições simples como "Mudando de assunto", "Outro destaque do dia"
+- Cubra as notícias mais relevantes com contexto suficiente para o ouvinte entender
+- Termine com uma frase de encerramento discreta
 
 Emails de hoje:
 {conteudo}"""
