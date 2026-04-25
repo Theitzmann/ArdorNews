@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from datetime import datetime
-from storage import listar_audios, url_audio, buscar_titulo
+from storage import listar_audios, url_audio, buscar_titulo, buscar_transcricao
 
 app = FastAPI()
 
@@ -27,7 +27,6 @@ def audio_do_dia():
 
 @app.get("/transcricao/{nome}")
 def transcricao(nome: str):
-    from storage import buscar_transcricao
     texto = buscar_transcricao(nome)
     if texto:
         return {"transcricao": texto}

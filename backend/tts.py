@@ -55,6 +55,58 @@ def limpar_markdown(texto):
 
     return texto.strip()
 
+def limpar_para_legenda(texto):
+    # Siglas com espaços entre letras maiúsculas (ex: O T O F → OTOF)
+    texto = re.sub(r'\b([A-Z]) ([A-Z]) ([A-Z]) ([A-Z])\b', r'\1\2\3\4', texto)
+    texto = re.sub(r'\b([A-Z]) ([A-Z]) ([A-Z])\b', r'\1\2\3', texto)
+    texto = re.sub(r'\b([A-Z]) ([A-Z])\b', r'\1\2', texto)
+
+    # Expressões numéricas comuns
+    substituicoes = {
+        'S&P quinhentos': 'S&P 500',
+        'Se P quinhentos': 'S&P 500',
+        'G um': 'G1',
+        'dois mil e vinte e seis': '2026',
+        'dois mil e vinte e cinco': '2025',
+        'dois mil e dezoito': '2018',
+        'dois mil e vinte e quatro': '2024',
+        'dois mil e vinte e três': '2023',
+        'mil novecentos e noventa': '1990',
+        'mil novecentos e oitenta': '1980',
+        'mil novecentos e setenta': '1970',
+        'mil novecentos e sessenta': '1960',
+        'mil novecentos e cinquenta e três': '1953',
+        'mil novecentos e cinquenta e quatro': '1954',
+        'vinte e cinco de abril': '25 de abril',
+        'primeiro de janeiro': '1º de janeiro',
+    }
+    for original, novo in substituicoes.items():
+        texto = texto.replace(original, novo)
+
+    # Números decimais por extenso → algarismos
+    # Padrão: "X, por extenso" onde X já é número
+    decimais = {
+        'trinta e três': '33',
+        'sessenta e três': '63',
+        'sessenta e quatro': '64',
+        'cinquenta e cinco': '55',
+        'cinquenta e seis': '56',
+        'oitenta': '80',
+        'cinquenta': '50',
+        'vinte e cinco': '25',
+        'vinte': '20',
+        'dez': '10',
+        'cinco': '05',
+        'um': '01',
+    }
+    for extenso, numero in decimais.items():
+        texto = re.sub(rf'(\d+), {extenso}', rf'\1,{numero}', texto)
+
+    # Remove "por cento" e substitui por %
+    texto = texto.replace(' por cento', '%')
+
+    return texto
+
 def dividir_texto(texto):
     partes = []
     while len(texto) > LIMITE:

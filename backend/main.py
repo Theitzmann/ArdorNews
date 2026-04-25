@@ -1,7 +1,7 @@
 import os
 from gmail_reader import ler_newsletters
 from summarizer import resumir_newsletters
-from tts import gerar_audio
+from tts import gerar_audio, limpar_markdown, limpar_para_legenda
 from storage import upload_audio, upload_titulo, upload_transcricao
 
 def gerar_audio_do_dia():
@@ -15,12 +15,14 @@ def gerar_audio_do_dia():
     print("🎙️ Gerando áudio...")
     caminho = gerar_audio(resumo)
 
+    texto_legenda = limpar_para_legenda(limpar_markdown(resumo))
+
     print("☁️ Enviando para o Supabase...")
     url = upload_audio(caminho)
 
     nome_audio = os.path.basename(caminho)
     upload_titulo(nome_audio, titulo)
-    upload_transcricao(nome_audio, resumo)
+    upload_transcricao(nome_audio, texto_legenda)
 
     print(f"✅ Pronto! Áudio disponível em: {url}")
     return url
