@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from datetime import datetime
-from storage import listar_audios, url_audio, buscar_titulo, buscar_transcricao, buscar_bullets
+from storage import listar_audios, url_audio, buscar_titulo, buscar_transcricao, buscar_bullets, buscar_emoji
 
 app = FastAPI()
 
@@ -35,9 +35,7 @@ def transcricao(nome: str):
 @app.get("/bullets/{nome}")
 def bullets(nome: str):
     texto = buscar_bullets(nome)
-    if texto:
-        return {"bullets": texto}
-    return {"bullets": ""}
+    return {"bullets": texto}
 
 @app.get("/lista")
 def listar():
@@ -45,5 +43,6 @@ def listar():
     resultado = []
     for nome in audios:
         titulo = buscar_titulo(nome)
-        resultado.append({"nome": nome, "titulo": titulo})
+        emoji = buscar_emoji(nome)
+        resultado.append({"nome": nome, "titulo": titulo, "emoji": emoji})
     return {"audios": resultado}

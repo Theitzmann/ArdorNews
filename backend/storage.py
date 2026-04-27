@@ -72,6 +72,30 @@ def buscar_bullets(nome_audio):
         pass
     return ""
 
+def upload_emoji(nome_audio, emoji):
+    nome_arquivo = nome_audio.replace('.mp3', '_emoji.txt')
+    conteudo = emoji.encode('utf-8')
+    try:
+        supabase.storage.from_(BUCKET).upload(
+            nome_arquivo, conteudo, {"content-type": "text/plain"}
+        )
+    except Exception:
+        supabase.storage.from_(BUCKET).update(
+            nome_arquivo, conteudo, {"content-type": "text/plain"}
+        )
+    print(f"☁️ Emoji salvo: {emoji}")
+
+def buscar_emoji(nome_audio):
+    nome_txt = nome_audio.replace('.mp3', '_emoji.txt')
+    url = supabase.storage.from_(BUCKET).get_public_url(nome_txt)
+    try:
+        response = httpx.get(url)
+        if response.status_code == 200:
+            return response.text.strip()
+    except Exception:
+        pass
+    return '📰'
+
 def upload_transcricao(nome_audio, texto):
     nome_arquivo = nome_audio.replace('.mp3', '_transcricao.txt')
     conteudo = texto.encode('utf-8')

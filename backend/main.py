@@ -2,7 +2,14 @@ import os
 from gmail_reader import ler_newsletters
 from summarizer import resumir_newsletters, gerar_bullets
 from tts import gerar_audio, limpar_markdown, limpar_para_legenda
-from storage import upload_audio, upload_titulo, upload_transcricao, upload_bullets
+from storage import upload_audio, upload_titulo, upload_transcricao, upload_bullets, upload_emoji
+
+def extrair_emoji(bullets):
+    primeira_linha = bullets.strip().split('\n')[0]
+    for char in primeira_linha:
+        if ord(char) > 127:
+            return char
+    return '📰'
 
 def gerar_audio_do_dia():
     print("📬 Lendo newsletters...")
@@ -16,6 +23,9 @@ def gerar_audio_do_dia():
     bullets = gerar_bullets(textos)
     print(f"Bullets: {bullets}")
 
+    emoji = extrair_emoji(bullets)
+    print(f"Emoji: {emoji}")
+
     print("🎙️ Gerando áudio...")
     caminho = gerar_audio(resumo)
 
@@ -28,6 +38,7 @@ def gerar_audio_do_dia():
     upload_titulo(nome_audio, titulo)
     upload_transcricao(nome_audio, texto_legenda)
     upload_bullets(nome_audio, bullets)
+    upload_emoji(nome_audio, emoji)
 
     print(f"✅ Pronto! Áudio disponível em: {url}")
     return url

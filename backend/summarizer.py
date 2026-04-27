@@ -71,12 +71,13 @@ def gerar_bullets(textos):
                 "role": "user",
                 "content": f"""Com base nos emails abaixo, gere exatamente 3 bullets das notícias mais importantes do dia.
 
-Formato obrigatório (uma por linha, sem numeração):
-- [notícia em uma frase curta e direta, máximo 10 palavras]
-- [notícia em uma frase curta e direta, máximo 10 palavras]
-- [notícia em uma frase curta e direta, máximo 10 palavras]
+Formato obrigatório (uma por linha):
+[emoji] [notícia em uma frase curta e direta, máximo 10 palavras]
 
-Responda apenas com os 3 bullets, nada mais.
+Regras:
+- Escolha um emoji que represente bem o tema de cada notícia
+- Exemplos: 🤖 para IA, 📈 para mercado, 🏥 para saúde, 🚀 para tecnologia, ⚖️ para política, 💰 para finanças, 🌍 para geopolítica
+- Responda apenas com os 3 bullets, nada mais
 
 Emails:
 {conteudo[:3000]}"""
