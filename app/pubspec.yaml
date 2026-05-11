@@ -37,6 +37,8 @@ dependencies:
   http: ^1.6.0
   just_audio: ^0.10.5
   google_fonts: ^8.0.2
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.9.4
 
 dev_dependencies:
   flutter_test:

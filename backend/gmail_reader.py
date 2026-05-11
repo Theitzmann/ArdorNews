@@ -1,57 +1,45 @@
+import imaplib
+import email
+from email.header import decode_header
+from datetime import datetime, timedelta
 import os
-import json
-import base64
-import re
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
+from dotenv import load_dotenv
 
-SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-TOKEN_PATH = os.path.join(BASE_DIR, 'secrets', 'token.json')
+load_dotenv(os.path.join(BASE_DIR, '.env'))
 
-def conectar_gmail():
-    token_json = os.getenv("GMAIL_TOKEN")
-    if token_json:
-        info = json.loads(token_json)
-        creds = Credentials.from_authorized_user_info(info, SCOPES)
-    else:
-        creds = Credentials.from_authorized_user_file(TOKEN_PATH, SCOPES)
-    return build('gmail', 'v1', credentials=creds)
-
-def limpar_texto(texto):
-    texto = re.sub(r'[\u200c\u200b\xa0]', ' ', texto)
-    texto = re.sub(r' +', ' ', texto)
-    texto = re.sub(r'\n{3,}', '\n\n', texto)
-    return texto.strip()
+EMAIL = os.getenv("GMAIL_EMAIL")
+PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 
 def ler_newsletters():
-    service = conectar_gmail()
+    mail = imaplib.IMAP4_SSL("imap.gmail.com")
+    mail.login(EMAIL, PASSWORD)
+    mail.select("inbox")
 
-    result = service.users().messages().list(
-        userId='me',
-        q='newer_than:1d',
-        maxResults=20
-    ).execute()
+    data_ontem = (datetime.now() - timedelta(days=1)).strftime("%d-%b-%Y")
+    _, mensagens = mail.search(None, f'(SINCE "{data_ontem}")')
 
-    mensagens = result.get('messages', [])
     textos = []
+    for num in mensagens[0].split():
+        _, dados = mail.fetch(num, "(RFC822)")
+        msg = email.message_from_bytes(dados[0][1])
 
-    for msg in mensagens:
-        dados = service.users().messages().get(
-            userId='me',
-            id=msg['id'],
-            format='full'
-        ).execute()
-
-        payload = dados['payload']
-        if 'parts' in payload:
-            parte = payload['parts'][0]['body'].get('data', '')
+        corpo = ""
+        if msg.is_multipart():
+            for part in msg.walk():
+                if part.get_content_type() == "text/plain":
+                    corpo = part.get_payload(decode=True).decode("utf-8", errors="ignore")
+                    break
         else:
-            parte = payload['body'].get('data', '')
+            corpo = msg.get_payload(decode=True).decode("utf-8", errors="ignore")
 
-        texto = base64.urlsafe_b64decode(parte).decode('utf-8', errors='ignore')
-        texto = limpar_texto(texto)
-        textos.append(texto)
+        if corpo.strip():
+            textos.append(corpo.strip())
 
+    mail.logout()
     print(f"✅ {len(textos)} newsletters lidas!")
     return textos
+
+if __name__ == "__main__":
+    textos = ler_newsletters()
+    print(textos[0][:500] if textos else "Nenhum email encontrado")
