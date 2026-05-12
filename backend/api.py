@@ -1,4 +1,5 @@
 import os
+import asyncio
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from datetime import datetime
@@ -37,12 +38,16 @@ def bullets(nome: str):
     texto = buscar_bullets(nome)
     return {"bullets": texto}
 
+async def buscar_info_audio(nome):
+    loop = asyncio.get_event_loop()
+    titulo, emoji = await asyncio.gather(
+        loop.run_in_executor(None, buscar_titulo, nome),
+        loop.run_in_executor(None, buscar_emoji, nome),
+    )
+    return {"nome": nome, "titulo": titulo, "emoji": emoji}
+
 @app.get("/lista")
-def listar():
+async def listar():
     audios = listar_audios()
-    resultado = []
-    for nome in audios:
-        titulo = buscar_titulo(nome)
-        emoji = buscar_emoji(nome)
-        resultado.append({"nome": nome, "titulo": titulo, "emoji": emoji})
-    return {"audios": resultado}
+    resultado = await asyncio.gather(*[buscar_info_audio(nome) for nome in audios])
+    return {"audios": list(resultado)}
