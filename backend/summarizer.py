@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
@@ -6,6 +7,15 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+DIAS_SEMANA = ['segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado', 'domingo']
+MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+
+def data_hoje_por_extenso():
+    hoje = datetime.now()
+    dia_semana = DIAS_SEMANA[hoje.weekday()]
+    mes = MESES[hoje.month - 1]
+    return f"{dia_semana}, {hoje.day} de {mes} de {hoje.year}"
 
 def gerar_titulo(conteudo):
     resposta = client.messages.create(
@@ -25,8 +35,8 @@ Emails:
 
 def resumir_newsletters(textos):
     conteudo = "\n\n---\n\n".join(textos)
-
     titulo = gerar_titulo(conteudo)
+    data = data_hoje_por_extenso()
 
     resposta = client.messages.create(
         model="claude-opus-4-5",
@@ -40,25 +50,25 @@ Transforme os emails abaixo em um roteiro de áudio de 5 a 8 minutos.
 
 Regras importantes:
 - Escreva entre 800 e 1200 palavras
-- Comece com uma saudação simples e o dia de hoje
+- Comece SEMPRE com: "Olá, bom dia. Hoje é {data}. Este é o seu resumo de tecnologia e negócios."
 - Tom: profissional e informativo, como um bom podcast de negócios
 - Evite expressões como "olha só", "e não para por aí", "impressionante", "incrível", "que bacana"
 - Escreva exatamente como se estivesse falando, não escrevendo
 - Use frases curtas e diretas
 - Nunca use markdown, asteriscos, hashtags ou símbolos
-- Pronuncie siglas separadas: escreva "I A" em vez de "IA", "G P T" em vez de "GPT"
+- Pronuncie siglas separadas: escreva "I A" em vez de "IA", "G P T" em vez de "GPT", "C E O" em vez de "CEO", "I P O" em vez de "IPO", "S A A S" em vez de "SaaS", "A P I" em vez de "API"
+- Palavras em inglês comuns devem ser escritas foneticamente: "hardware" como "hárdware", "software" como "sóftwear", "startup" como "stártap"
 - Conecte as notícias com transições simples como "Mudando de assunto", "Outro destaque do dia"
 - Cubra as notícias mais relevantes com contexto suficiente para o ouvinte entender
 - Termine com uma frase de encerramento discreta
+- IMPORTANTE: escreva APENAS o roteiro, sem títulos, sem listas, sem qualquer formatação
 
 Emails de hoje:
 {conteudo}"""
             }
         ]
     )
-
     return titulo, resposta.content[0].text
-
 
 def gerar_bullets(textos):
     conteudo = "\n\n---\n\n".join(textos)
@@ -84,7 +94,6 @@ Emails:
             }
         ]
     )
-
     return resposta.content[0].text.strip()
 
 if __name__ == "__main__":

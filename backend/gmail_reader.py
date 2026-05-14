@@ -16,8 +16,14 @@ def ler_newsletters():
     mail.login(EMAIL, PASSWORD)
     mail.select("inbox")
 
-    data_ontem = (datetime.now() - timedelta(days=1)).strftime("%d-%b-%Y")
-    _, mensagens = mail.search(None, f'(SINCE "{data_ontem}")')
+    data_hoje = datetime.now().strftime("%d-%b-%Y")
+    _, mensagens = mail.search(None, f'(ON "{data_hoje}")')
+
+    # Se não encontrar emails de hoje, tenta desde ontem como fallback
+    if not mensagens[0].split():
+        data_ontem = (datetime.now() - timedelta(days=1)).strftime("%d-%b-%Y")
+        _, mensagens = mail.search(None, f'(SINCE "{data_ontem}")')
+        print("⚠️ Nenhum email de hoje, buscando desde ontem...")
 
     textos = []
     for num in mensagens[0].split():
