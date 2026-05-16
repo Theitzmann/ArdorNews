@@ -220,3 +220,5 @@ venv/
 backend/secrets/
 
 backend/audio/
+
+.claude/
