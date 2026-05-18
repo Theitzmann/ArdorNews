@@ -42,7 +42,8 @@ def upload_titulo(nome_audio, titulo):
     print(f"☁️ Título salvo: {titulo}")
 
 def listar_audios():
-    arquivos = supabase.storage.from_(BUCKET).list()
+    # Explicit limit prevents silent truncation at 100 files (~20 editions x 5 files each)
+    arquivos = supabase.storage.from_(BUCKET).list(options={"limit": 1000})
     return [a['name'] for a in arquivos if a['name'].endswith('.mp3')]
 
 def url_audio(nome_arquivo):
@@ -130,3 +131,49 @@ def buscar_titulo(nome_audio):
     except Exception:
         pass
     return "Resumo Diário de Tecnologia"
+
+def apagar_edicoes_antigas(meses: int = 3):
+    """
+    Deletes all editions older than `meses` months from Supabase.
+    Each daily edition has 5 files sharing the same date prefix:
+      YYYY-MM-DD.mp3
+      YYYY-MM-DD.txt
+      YYYY-MM-DD_bullets.txt
+      YYYY-MM-DD_transcricao.txt
+      YYYY-MM-DD_emoji.txt
+    """
+    from datetime import datetime, timezone
+    from dateutil.relativedelta import relativedelta
+
+    limite = datetime.now(timezone.utc) - relativedelta(months=meses)
+
+    # Get all .mp3 files to identify editions by date
+    arquivos = supabase.storage.from_(BUCKET).list(options={"limit": 1000})
+    mp3s = [a['name'] for a in arquivos if a['name'].endswith('.mp3')]
+
+    apagados = 0
+    for nome_audio in mp3s:
+        try:
+            # Extract date from filename: 2026-05-18.mp3 → 2026-05-18
+            data_str = nome_audio.replace('.mp3', '')
+            data = datetime.strptime(data_str, '%Y-%m-%d').replace(
+                tzinfo=timezone.utc
+            )
+        except ValueError:
+            # Skip files that don't match the expected naming pattern
+            continue
+
+        if data < limite:
+            # Delete all 5 files belonging to this edition
+            ficheiros = [
+                nome_audio,
+                nome_audio.replace('.mp3', '.txt'),
+                nome_audio.replace('.mp3', '_bullets.txt'),
+                nome_audio.replace('.mp3', '_transcricao.txt'),
+                nome_audio.replace('.mp3', '_emoji.txt'),
+            ]
+            supabase.storage.from_(BUCKET).remove(ficheiros)
+            print(f"🗑️ Edição apagada: {data_str}")
+            apagados += 1
+
+    print(f"✅ Limpeza concluída: {apagados} edições apagadas.")
