@@ -153,7 +153,6 @@ def gerar_audio(texto):
 
     texto = limpar_markdown(texto)
     partes = dividir_texto(texto)
-    print(f"📝 Texto dividido em {len(partes)} partes")
 
     bytes_final = b""
     for i, parte in enumerate(partes):
@@ -185,5 +184,6 @@ if __name__ == "__main__":
     from summarizer import resumir_newsletters
     from gmail_reader import ler_newsletters
     textos = ler_newsletters()
-    resumo = resumir_newsletters(textos)
+    # resumir_newsletters returns (titulo, resumo_text); gerar_audio takes only the text
+    titulo, resumo = resumir_newsletters(textos)
     gerar_audio(resumo)

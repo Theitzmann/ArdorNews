@@ -21,10 +21,8 @@ def gerar_audio_do_dia():
 
     print("📌 Gerando bullets...")
     bullets = gerar_bullets(textos)
-    print(f"Bullets: {bullets}")
 
     emoji = extrair_emoji(bullets)
-    print(f"Emoji: {emoji}")
 
     print("🎙️ Gerando áudio...")
     caminho = gerar_audio(resumo)

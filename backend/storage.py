@@ -6,8 +6,16 @@ from dotenv import load_dotenv
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_URL = os.getenv("SUPABASE_URL")  # e.g. https://<project>.supabase.co
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")  # service_role or anon key from Supabase dashboard
+
+# Fail loudly at import time so Railway surfaces a clear error instead of a
+# cryptic NoneType crash deep inside the Supabase client.
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise RuntimeError(
+        "Missing Supabase credentials — set SUPABASE_URL and SUPABASE_KEY env vars."
+    )
+
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 BUCKET = "audios"

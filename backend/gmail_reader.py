@@ -1,6 +1,5 @@
 import imaplib
 import email
-from email.header import decode_header
 from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
@@ -13,17 +12,27 @@ PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 
 def ler_newsletters():
     mail = imaplib.IMAP4_SSL("imap.gmail.com")
-    mail.login(EMAIL, PASSWORD)
+
+    try:
+        mail.login(EMAIL, PASSWORD)
+    except imaplib.IMAP4.error as e:
+        raise RuntimeError(
+            f"Gmail login failed — check GMAIL_APP_PASSWORD env var: {e}"
+        ) from e
+
     mail.select("inbox")
 
-    data_hoje = datetime.now().strftime("%d-%b-%Y")
-    _, mensagens = mail.search(None, f'(ON "{data_hoje}")')
+    try:
+        data_hoje = datetime.now().strftime("%d-%b-%Y")
+        _, mensagens = mail.search(None, f'(ON "{data_hoje}")')
 
-    # Se não encontrar emails de hoje, tenta desde ontem como fallback
-    if not mensagens[0].split():
-        data_ontem = (datetime.now() - timedelta(days=1)).strftime("%d-%b-%Y")
-        _, mensagens = mail.search(None, f'(SINCE "{data_ontem}")')
-        print("⚠️ Nenhum email de hoje, buscando desde ontem...")
+        # Se não encontrar emails de hoje, tenta desde ontem como fallback
+        if not mensagens[0].split():
+            data_ontem = (datetime.now() - timedelta(days=1)).strftime("%d-%b-%Y")
+            _, mensagens = mail.search(None, f'(SINCE "{data_ontem}")')
+            print("⚠️ Nenhum email de hoje, buscando desde ontem...")
+    except imaplib.IMAP4.error as e:
+        raise RuntimeError(f"Gmail fetch failed: {e}") from e
 
     textos = []
     for num in mensagens[0].split():

@@ -1,4 +1,3 @@
-import os
 import asyncio
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
@@ -39,7 +38,7 @@ def bullets(nome: str):
     return {"bullets": texto}
 
 async def buscar_info_audio(nome):
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     titulo, emoji = await asyncio.gather(
         loop.run_in_executor(None, buscar_titulo, nome),
         loop.run_in_executor(None, buscar_emoji, nome),
