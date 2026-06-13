@@ -1,5 +1,8 @@
 import os
+from datetime import datetime, timezone
+
 import httpx
+from dateutil.relativedelta import relativedelta
 from supabase import create_client
 from dotenv import load_dotenv
 
@@ -20,33 +23,56 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 BUCKET = "audios"
 
+# Shared async HTTP client — reuses TCP/TLS connections to Supabase instead of
+# paying a full handshake on every fetch (the old per-call httpx.get did that).
+http_client = httpx.AsyncClient(timeout=10.0)
+
+# In-memory cache for the small text files (title, emoji, bullets, transcript).
+# Safe because files are immutable once uploaded: each edition is written once
+# by the daily pipeline and never modified. Only successful fetches are cached,
+# so a file that doesn't exist yet (today's edition mid-pipeline) is retried.
+_cache_textos: dict[str, str] = {}
+
+
+async def _buscar_texto(nome_txt: str, padrao: str) -> str:
+    """Fetches a text file from the public bucket, with caching. Returns
+    `padrao` (default value) on any failure, without caching it."""
+    if nome_txt in _cache_textos:
+        return _cache_textos[nome_txt]
+    url = supabase.storage.from_(BUCKET).get_public_url(nome_txt)
+    try:
+        response = await http_client.get(url)
+        if response.status_code == 200:
+            texto = response.text.strip()
+            _cache_textos[nome_txt] = texto
+            return texto
+    except Exception as e:
+        # Logged (not raised) so a Supabase hiccup degrades to the default
+        # value instead of a 500 — but still leaves a trace in Railway logs
+        print(f"⚠️ Falha ao buscar {nome_txt}: {e}")
+    return padrao
+
+def _upload_ou_atualizar(nome_arquivo, conteudo, content_type):
+    """Uploads a file, falling back to update when it already exists
+    (Supabase raises on duplicate upload instead of overwriting)."""
+    opcoes = {"content-type": content_type}
+    try:
+        supabase.storage.from_(BUCKET).upload(nome_arquivo, conteudo, opcoes)
+    except Exception:
+        supabase.storage.from_(BUCKET).update(nome_arquivo, conteudo, opcoes)
+
 def upload_audio(caminho_local):
     nome_arquivo = os.path.basename(caminho_local)
     with open(caminho_local, 'rb') as f:
-        try:
-            supabase.storage.from_(BUCKET).upload(
-                nome_arquivo, f, {"content-type": "audio/mpeg"}
-            )
-        except Exception:
-            f.seek(0)
-            supabase.storage.from_(BUCKET).update(
-                nome_arquivo, f, {"content-type": "audio/mpeg"}
-            )
+        _upload_ou_atualizar(nome_arquivo, f.read(), "audio/mpeg")
     url = supabase.storage.from_(BUCKET).get_public_url(nome_arquivo)
     print(f"☁️ Áudio enviado para o Supabase: {url}")
     return url
 
 def upload_titulo(nome_audio, titulo):
-    nome_arquivo = nome_audio.replace('.mp3', '.txt')
-    conteudo = titulo.encode('utf-8')
-    try:
-        supabase.storage.from_(BUCKET).upload(
-            nome_arquivo, conteudo, {"content-type": "text/plain"}
-        )
-    except Exception:
-        supabase.storage.from_(BUCKET).update(
-            nome_arquivo, conteudo, {"content-type": "text/plain"}
-        )
+    _upload_ou_atualizar(
+        nome_audio.replace('.mp3', '.txt'), titulo.encode('utf-8'), "text/plain"
+    )
     print(f"☁️ Título salvo: {titulo}")
 
 def listar_audios():
@@ -58,87 +84,40 @@ def url_audio(nome_arquivo):
     return supabase.storage.from_(BUCKET).get_public_url(nome_arquivo)
 
 def upload_bullets(nome_audio, bullets):
-    nome_arquivo = nome_audio.replace('.mp3', '_bullets.txt')
-    conteudo = bullets.encode('utf-8')
-    try:
-        supabase.storage.from_(BUCKET).upload(
-            nome_arquivo, conteudo, {"content-type": "text/plain"}
-        )
-    except Exception:
-        supabase.storage.from_(BUCKET).update(
-            nome_arquivo, conteudo, {"content-type": "text/plain"}
-        )
-    print(f"☁️ Bullets salvos!")
+    _upload_ou_atualizar(
+        nome_audio.replace('.mp3', '_bullets.txt'),
+        bullets.encode('utf-8'),
+        "text/plain",
+    )
+    print("☁️ Bullets salvos!")
 
-def buscar_bullets(nome_audio):
-    nome_txt = nome_audio.replace('.mp3', '_bullets.txt')
-    url = supabase.storage.from_(BUCKET).get_public_url(nome_txt)
-    try:
-        response = httpx.get(url)
-        if response.status_code == 200:
-            return response.text.strip()
-    except Exception:
-        pass
-    return ""
+async def buscar_bullets(nome_audio):
+    return await _buscar_texto(nome_audio.replace('.mp3', '_bullets.txt'), "")
 
 def upload_emoji(nome_audio, emoji):
-    nome_arquivo = nome_audio.replace('.mp3', '_emoji.txt')
-    conteudo = emoji.encode('utf-8')
-    try:
-        supabase.storage.from_(BUCKET).upload(
-            nome_arquivo, conteudo, {"content-type": "text/plain"}
-        )
-    except Exception:
-        supabase.storage.from_(BUCKET).update(
-            nome_arquivo, conteudo, {"content-type": "text/plain"}
-        )
+    _upload_ou_atualizar(
+        nome_audio.replace('.mp3', '_emoji.txt'), emoji.encode('utf-8'), "text/plain"
+    )
     print(f"☁️ Emoji salvo: {emoji}")
 
-def buscar_emoji(nome_audio):
-    nome_txt = nome_audio.replace('.mp3', '_emoji.txt')
-    url = supabase.storage.from_(BUCKET).get_public_url(nome_txt)
-    try:
-        response = httpx.get(url)
-        if response.status_code == 200:
-            return response.text.strip()
-    except Exception:
-        pass
-    return '📰'
+async def buscar_emoji(nome_audio):
+    return await _buscar_texto(nome_audio.replace('.mp3', '_emoji.txt'), '📰')
 
 def upload_transcricao(nome_audio, texto):
-    nome_arquivo = nome_audio.replace('.mp3', '_transcricao.txt')
-    conteudo = texto.encode('utf-8')
-    try:
-        supabase.storage.from_(BUCKET).upload(
-            nome_arquivo, conteudo, {"content-type": "text/plain"}
-        )
-    except Exception:
-        supabase.storage.from_(BUCKET).update(
-            nome_arquivo, conteudo, {"content-type": "text/plain"}
-        )
-    print(f"☁️ Transcrição salva!")
+    _upload_ou_atualizar(
+        nome_audio.replace('.mp3', '_transcricao.txt'),
+        texto.encode('utf-8'),
+        "text/plain",
+    )
+    print("☁️ Transcrição salva!")
 
-def buscar_transcricao(nome_audio):
-    nome_txt = nome_audio.replace('.mp3', '_transcricao.txt')
-    url = supabase.storage.from_(BUCKET).get_public_url(nome_txt)
-    try:
-        response = httpx.get(url)
-        if response.status_code == 200:
-            return response.text.strip()
-    except Exception:
-        pass
-    return ""
+async def buscar_transcricao(nome_audio):
+    return await _buscar_texto(nome_audio.replace('.mp3', '_transcricao.txt'), "")
 
-def buscar_titulo(nome_audio):
-    nome_txt = nome_audio.replace('.mp3', '.txt')
-    url = supabase.storage.from_(BUCKET).get_public_url(nome_txt)
-    try:
-        response = httpx.get(url)
-        if response.status_code == 200:
-            return response.text.strip()
-    except Exception:
-        pass
-    return "Resumo Diário de Tecnologia"
+async def buscar_titulo(nome_audio):
+    return await _buscar_texto(
+        nome_audio.replace('.mp3', '.txt'), "Resumo Diário de Tecnologia"
+    )
 
 def apagar_edicoes_antigas(meses: int = 3):
     """
@@ -150,9 +129,6 @@ def apagar_edicoes_antigas(meses: int = 3):
       YYYY-MM-DD_transcricao.txt
       YYYY-MM-DD_emoji.txt
     """
-    from datetime import datetime, timezone
-    from dateutil.relativedelta import relativedelta
-
     limite = datetime.now(timezone.utc) - relativedelta(months=meses)
 
     # Get all .mp3 files to identify editions by date

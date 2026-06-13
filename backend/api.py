@@ -1,10 +1,30 @@
 import asyncio
+import re
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import RedirectResponse
 from datetime import datetime
-from storage import listar_audios, url_audio, buscar_titulo, buscar_transcricao, buscar_bullets, buscar_emoji
+from storage import (
+    listar_audios, url_audio, buscar_titulo, buscar_transcricao,
+    buscar_bullets, buscar_emoji, http_client,
+)
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    # Graceful shutdown: release the pooled connections to Supabase
+    await http_client.aclose()
+
+# NOTE: error responses use 200 + {"erro": ...} on purpose — the mobile app
+# always inspects the body, which keeps the client-side handling uniform.
+app = FastAPI(lifespan=lifespan)
+
+# Compress text responses (transcripts are ~8 KB; gzip cuts them to ~3 KB)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# Audio names follow the daily pipeline pattern: 2026-05-18.mp3
+NOME_VALIDO = re.compile(r'^\d{4}-\d{2}-\d{2}\.mp3$')
 
 def nome_audio_hoje():
     hoje = datetime.now().strftime('%Y-%m-%d')
@@ -26,27 +46,28 @@ def audio_do_dia():
     return {"erro": "Áudio de hoje ainda não está pronto"}
 
 @app.get("/transcricao/{nome}")
-def transcricao(nome: str):
-    texto = buscar_transcricao(nome)
+async def transcricao(nome: str):
+    if not NOME_VALIDO.match(nome):
+        return {"erro": "Nome de áudio inválido"}
+    texto = await buscar_transcricao(nome)
     if texto:
         return {"transcricao": texto}
     return {"erro": "Transcrição não encontrada"}
 
 @app.get("/bullets/{nome}")
-def bullets(nome: str):
-    texto = buscar_bullets(nome)
+async def bullets(nome: str):
+    if not NOME_VALIDO.match(nome):
+        return {"bullets": ""}
+    texto = await buscar_bullets(nome)
     return {"bullets": texto}
 
 async def buscar_info_audio(nome):
-    loop = asyncio.get_running_loop()
-    titulo, emoji = await asyncio.gather(
-        loop.run_in_executor(None, buscar_titulo, nome),
-        loop.run_in_executor(None, buscar_emoji, nome),
-    )
+    titulo, emoji = await asyncio.gather(buscar_titulo(nome), buscar_emoji(nome))
     return {"nome": nome, "titulo": titulo, "emoji": emoji}
 
 @app.get("/lista")
 async def listar():
-    audios = listar_audios()
+    # listar_audios is a blocking Supabase call — run it off the event loop
+    audios = await asyncio.to_thread(listar_audios)
     resultado = await asyncio.gather(*[buscar_info_audio(nome) for nome in audios])
     return {"audios": list(resultado)}

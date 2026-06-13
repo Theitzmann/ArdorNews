@@ -14,8 +14,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Scoped to the backend: a bare "lib/" would also ignore app/lib (Flutter source!)
+backend/lib/
+backend/lib64/
 parts/
 sdist/
 var/

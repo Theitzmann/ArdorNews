@@ -1,0 +1,60 @@
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz;
+
+class NotificationService {
+  static final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
+
+  static Future<void> init() async {
+    tz.initializeTimeZones();
+    tz.setLocalLocation(tz.getLocation('America/Sao_Paulo'));
+
+    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const settings = InitializationSettings(android: android);
+    await _plugin.initialize(settings);
+
+    // Android 13+ requires explicit permission request at runtime.
+    // Without this, no notifications appear (neither daily nor media controls).
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
+  }
+
+  static Future<void> agendarNotificacaoDiaria() async {
+    await _plugin.zonedSchedule(
+      0,
+      '📡 Ardor News',
+      'Suas notícias de hoje estão prontas!',
+      _proximasOnzeHoras(),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'ardor_daily',
+          'Notícias Diárias',
+          channelDescription: 'Notificação diária das notícias',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+uiLocalNotificationDateInterpretation:
+    UILocalNotificationDateInterpretation.absoluteTime,
+matchDateTimeComponents: DateTimeComponents.time,
+    );
+  }
+
+  static Future<void> cancelarNotificacoes() async {
+    await _plugin.cancelAll();
+  }
+
+  static tz.TZDateTime _proximasOnzeHoras() {
+    final agora = tz.TZDateTime.now(tz.local);
+    var horario = tz.TZDateTime(
+        tz.local, agora.year, agora.month, agora.day, 11, 0);
+    if (horario.isBefore(agora)) {
+      horario = horario.add(const Duration(days: 1));
+    }
+    return horario;
+  }
+}
