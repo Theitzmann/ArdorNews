@@ -131,6 +131,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   List<Map<String, String>> _audios = [];
   String _nomeAudioAtual = '';
   String _bulletsAtual = '';
+  // True while the tapped episode's bullets are being fetched. Lets the footer
+  // show a neutral "loading" header instead of _mensagem (which is the
+  // "is today ready?" status, not a per-episode loading state).
+  bool _carregandoBullets = false;
 
   // Per-episode caches — transcripts and bullets are immutable once
   // published, so a second open never needs to hit the network again
@@ -261,7 +265,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     // Serve from cache when this episode's bullets were already fetched
     final emCache = _bulletsCache[nomeAudio];
     if (emCache != null) {
-      setState(() => _bulletsAtual = emCache);
+      setState(() {
+        _bulletsAtual = emCache;
+        _carregandoBullets = false;
+      });
       return;
     }
     try {
@@ -272,9 +279,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       // Only cache non-empty results: today's episode may not have
       // bullets yet while the daily pipeline is still running
       if (bullets.isNotEmpty) _bulletsCache[nomeAudio] = bullets;
-      setState(() => _bulletsAtual = bullets);
+      setState(() {
+        _bulletsAtual = bullets;
+        _carregandoBullets = false;
+      });
     } catch (e) {
       debugPrint('Erro ao carregar bullets: $e');
+      if (mounted) setState(() => _carregandoBullets = false);
     }
   }
 
@@ -422,6 +433,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       setState(() {
         _nomeAudioAtual = nomeAudio;
         _bulletsAtual = '';
+        _carregandoBullets = true;
         _audioSelecionado = true;
         _playerVisivel = true;
       });
@@ -465,7 +477,66 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     } else {
       await NotificationService.agendarNotificacaoDiaria();
       setState(() => _notificacoesAtivas = true);
+      // The alarm is now scheduled, but Android may still block it while the
+      // app is closed if the app is battery-restricted. Prompt for the
+      // exemption so the 11h notification actually arrives.
+      final isento = await NotificationService.verificarOtimizacaoBateria();
+      if (!isento && mounted) _mostrarDialogoBateria();
     }
+  }
+
+  // Asks the user to lift battery restrictions so the daily alarm can fire.
+  // Styled to match the app's modals: dark cardBg, rounded corners, Inter font
+  // and the orange accent on the primary action.
+  void _mostrarDialogoBateria() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: _AppColors.cardBg,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        title: Text(
+          'Permissão necessária',
+          style: GoogleFonts.inter(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
+        content: Text(
+          'Para receber a notificação das 11h mesmo com o app fechado, '
+          'permita que o Ardor News funcione sem restrições de bateria.',
+          style: GoogleFonts.inter(
+            color: Colors.white70,
+            fontSize: 14,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Agora não',
+              style: GoogleFonts.inter(color: Colors.white54),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              NotificationService.solicitarIgnorarOtimizacao();
+            },
+            child: Text(
+              'Permitir',
+              style: GoogleFonts.inter(
+                color: _AppColors.accent,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // --- HELPERS ---
@@ -762,9 +833,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                     Expanded(
                       child: Text(
-                        _bulletsAtual.isEmpty
-                            ? _mensagem
-                            : 'Principais destaques',
+                        _bulletsAtual.isNotEmpty
+                            ? 'Principais destaques'
+                            // While loading this episode's bullets, show a
+                            // neutral header — not _mensagem, which is the
+                            // "is today ready?" status and would flash here.
+                            : (_carregandoBullets
+                                  ? 'Carregando destaques...'
+                                  : _mensagem),
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
                           color: Colors.white.withValues(alpha: 0.9),

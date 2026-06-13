@@ -1,4 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 
@@ -46,6 +47,18 @@ matchDateTimeComponents: DateTimeComponents.time,
 
   static Future<void> cancelarNotificacoes() async {
     await _plugin.cancelAll();
+  }
+
+  // Samsung/Android frequently mark the app as "background restricted", which
+  // blocks the 11h alarm receiver from running while the app is closed. These
+  // two helpers let the UI check and request the battery-optimization exemption.
+  static Future<bool> verificarOtimizacaoBateria() async {
+    final status = await Permission.ignoreBatteryOptimizations.status;
+    return status.isGranted;
+  }
+
+  static Future<void> solicitarIgnorarOtimizacao() async {
+    await Permission.ignoreBatteryOptimizations.request();
   }
 
   static tz.TZDateTime _proximasOnzeHoras() {

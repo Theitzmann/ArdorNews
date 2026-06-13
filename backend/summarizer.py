@@ -44,24 +44,30 @@ def resumir_newsletters(textos):
         messages=[
             {
                 "role": "user",
-                "content": f"""Você é um apresentador de podcast de tecnologia e negócios em português brasileiro. Seu estilo é claro, direto e profissional, mas acessível. Sem exageros, sem expressões de euforia.
+                "content": f"""Você é um apresentador de podcast de tecnologia e negócios em português brasileiro. Seu estilo é claro, direto e didático: você explica para alguém inteligente que não conhece os termos técnicos. Sem euforia, sem enrolação.
 
 Transforme os emails abaixo em um roteiro de áudio de 5 a 8 minutos.
 
-Regras importantes:
-- Escreva entre 800 e 1200 palavras
+Regras de conteúdo:
+- Escreva entre 800 e 1200 palavras.
 - Comece SEMPRE com: "Olá, bom dia. Hoje é {data}. Este é o seu resumo de tecnologia e negócios."
-- Tom: profissional e informativo, como um bom podcast de negócios
-- Evite expressões como "olha só", "e não para por aí", "impressionante", "incrível", "que bacana"
-- Escreva exatamente como se estivesse falando, não escrevendo
-- Use frases curtas e diretas
-- Nunca use markdown, asteriscos, hashtags ou símbolos
-- Pronuncie siglas separadas: escreva "I A" em vez de "IA", "G P T" em vez de "GPT", "C E O" em vez de "CEO", "I P O" em vez de "IPO", "S A A S" em vez de "SaaS", "A P I" em vez de "API"
-- Palavras em inglês comuns devem ser escritas foneticamente: "hardware" como "hárdware", "software" como "sóftwear", "startup" como "stártap"
-- Conecte as notícias com transições simples como "Mudando de assunto", "Outro destaque do dia"
-- Cubra as notícias mais relevantes com contexto suficiente para o ouvinte entender
-- Termine com uma frase de encerramento discreta
-- IMPORTANTE: escreva APENAS o roteiro, sem títulos, sem listas, sem qualquer formatação
+- Vá direto ao fato. Comece cada notícia pelo que aconteceu, não por uma introdução. Bom: "A SpaceX vai abrir capital na bolsa." Ruim: "Vamos começar com uma das notícias mais aguardadas do mercado."
+- NÃO use frases de preenchimento: "vamos começar com", "outro destaque do dia", "mudando de assunto", "ainda sobre", "vale destacar", "uma notícia importante". Passe de uma notícia para outra de forma natural, ou simplesmente comece a próxima.
+- NÃO qualifique as notícias com hype: "importante", "aguardada", "histórica", "impressionante", "incrível".
+- Seja didático: na primeira vez que usar um termo técnico ou de negócios (ex.: IPO, stablecoin, token, kernel, comércio agêntico), explique em poucas palavras, de forma simples, dentro da própria frase. Ex.: "vai fazer um IPO, ou seja, vender ações ao público pela primeira vez".
+- Dê contexto suficiente para o ouvinte entender por que aquilo importa.
+
+Regras de estilo (texto falado):
+- Escreva como se estivesse falando, não escrevendo. Frases curtas e diretas.
+- Tom profissional e tranquilo. Evite "olha só", "e não para por aí", "que bacana".
+- Nunca use markdown, asteriscos, hashtags ou símbolos.
+- Termine com uma frase de encerramento curta e discreta.
+
+Regras de pronúncia (para o áudio):
+- Toda sigla de letras deve ser escrita com as letras separadas por espaço e NUNCA colada a outra palavra: "I A" (não "IA"), "G P T", "C E O", "A P I", "S E C", "U S D C", "N A S D A Q", "G P U". Para "IPO" escreva "I P O" — nunca "OIPO".
+- Palavras em inglês comuns: escreva foneticamente e SEMPRE da mesma forma — "software" como "sóftwear", "hardware" como "hárdware", "startup" como "stártap", "token" como "tôuken".
+
+IMPORTANTE: escreva APENAS o roteiro, sem títulos, sem listas, sem qualquer formatação.
 
 Emails de hoje:
 {conteudo}"""
@@ -79,17 +85,19 @@ def gerar_bullets(textos):
         messages=[
             {
                 "role": "user",
-                "content": f"""Com base nos emails abaixo, gere exatamente 3 bullets das notícias mais importantes do dia.
+                "content": f"""Com base no conteúdo abaixo, gere exatamente 3 bullets com os destaques mais relevantes do dia.
 
 Formato obrigatório (uma por linha):
-[emoji] [notícia em uma frase curta e direta, máximo 10 palavras]
+[emoji] [destaque em uma frase curta e direta, máximo 10 palavras]
 
 Regras:
-- Escolha um emoji que represente bem o tema de cada notícia
-- Exemplos: 🤖 para IA, 📈 para mercado, 🏥 para saúde, 🚀 para tecnologia, ⚖️ para política, 💰 para finanças, 🌍 para geopolítica
-- Responda apenas com os 3 bullets, nada mais
+- SEMPRE gere exatamente 3 bullets, qualquer que seja o conteúdo recebido.
+- Se o conteúdo não for "notícia" tradicional (ex.: artigos de opinião, tutoriais, newsletters de gestão), mesmo assim extraia os 3 pontos ou ideias mais importantes e resuma-os no mesmo formato.
+- Nunca explique, justifique, peça desculpa ou diga que não é possível. Responda APENAS com os 3 bullets, nada mais.
+- Escolha um emoji que represente bem o tema de cada bullet.
+- Exemplos: 🤖 para IA, 📈 para mercado, 🏥 para saúde, 🚀 para tecnologia, ⚖️ para política, 💰 para finanças, 🌍 para geopolítica, 💡 para ideias, 📊 para dados, 🛠️ para ferramentas
 
-Emails:
+Conteúdo:
 {conteudo[:3000]}"""
             }
         ]

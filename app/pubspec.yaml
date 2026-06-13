@@ -40,6 +40,7 @@ dependencies:
   google_fonts: ^8.0.2
   flutter_local_notifications: ^18.0.1
   timezone: ^0.9.4
+  permission_handler: ^11.3.0
 
 dev_dependencies:
   flutter_test:
