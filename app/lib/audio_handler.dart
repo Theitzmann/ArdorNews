@@ -1,25 +1,22 @@
-import 'dart:async'; // For StreamSubscription
+import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
-import 'package:flutter/foundation.dart'; // For debugPrint
+import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
-// This class runs in the background and controls the audio player.
-// It also tells the OS what to show in the notification and lock screen.
+// Toca o áudio em segundo plano e controla a notificação/tela de bloqueio
 class ArdorAudioHandler extends BaseAudioHandler with SeekHandler {
   final AudioPlayer player = AudioPlayer();
 
-  // Skip interval used by fastForward() and rewind() — kept at 10s to match
-  // the replay_10/forward_10 icons shown in the app and the OS notification
+  // Quanto os botões de avançar/voltar pulam (combina com os ícones de 10s)
   static const _skipInterval = Duration(seconds: 10);
 
-  // Stored subscriptions so they can be cancelled in onTaskRemoved()
   late final StreamSubscription _playbackEventSub;
   late final StreamSubscription _playingSub;
   late final StreamSubscription _durationSub;
 
   ArdorAudioHandler() {
-    // Forward player events to audio_service so the OS stays in sync
+    // Repassa os eventos do player pro audio_service manter o sistema em sincronia
     _playbackEventSub = player.playbackEventStream.listen(_updatePlaybackState);
     _playingSub = player.playingStream.listen(
       (_) => _updatePlaybackState(player.playbackEvent),
@@ -33,16 +30,15 @@ class ArdorAudioHandler extends BaseAudioHandler with SeekHandler {
     });
   }
 
-  // Load a new audio URL and set the media info shown in the notification
+  // Carrega uma nova URL e define o que aparece na notificação
   Future<void> loadUrl(String url, String title, {String emoji = '📰'}) async {
     mediaItem.add(
       MediaItem(
         id: url,
         title: '$emoji $title',
         artist: 'Ardor News',
-        // Uses the app launcher icon as notification artwork
         artUri: Uri.parse(
-          'android.resource://com.example.app/mipmap/ic_launcher',
+          'android.resource://com.ardornews/mipmap/ic_launcher',
         ),
       ),
     );
@@ -54,8 +50,7 @@ class ArdorAudioHandler extends BaseAudioHandler with SeekHandler {
     }
   }
 
-  // These methods are called by the OS when the user taps
-  // the notification controls
+  // Chamados pelo sistema quando o usuário toca nos controles da notificação
   @override
   Future<void> play() => player.play();
   @override
@@ -65,7 +60,7 @@ class ArdorAudioHandler extends BaseAudioHandler with SeekHandler {
   @override
   Future<void> seek(Duration position) => player.seek(position);
 
-  // +10s and -10s buttons in the notification
+  // Botões de +10s e -10s na notificação
   @override
   Future<void> fastForward() => player.seek(player.position + _skipInterval);
 
@@ -75,7 +70,7 @@ class ArdorAudioHandler extends BaseAudioHandler with SeekHandler {
     return player.seek(newPos < Duration.zero ? Duration.zero : newPos);
   }
 
-  // Keeps the OS notification in sync with the actual player state
+  // Mantém a notificação do sistema em sincronia com o estado real do player
   void _updatePlaybackState(PlaybackEvent event) {
     playbackState.add(
       playbackState.value.copyWith(
@@ -105,14 +100,13 @@ class ArdorAudioHandler extends BaseAudioHandler with SeekHandler {
     );
   }
 
+  // Libera o player quando o app é removido dos recentes
   @override
   Future<void> onTaskRemoved() async {
-    // Cancel stream subscriptions before disposing the player
     await _playbackEventSub.cancel();
     await _playingSub.cancel();
     await _durationSub.cancel();
     await stop();
-    // Release audio resources when the user swipes the app away from recents
     await player.dispose();
     await super.onTaskRemoved();
   }

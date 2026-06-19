@@ -1,4 +1,6 @@
 import os
+import re
+import json
 from datetime import datetime
 from anthropic import Anthropic
 from dotenv import load_dotenv
@@ -11,12 +13,14 @@ client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 DIAS_SEMANA = ['segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado', 'domingo']
 MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
 
+# Data de hoje por extenso (ex: "quinta-feira, 19 de junho de 2026")
 def data_hoje_por_extenso():
     hoje = datetime.now()
     dia_semana = DIAS_SEMANA[hoje.weekday()]
     mes = MESES[hoje.month - 1]
     return f"{dia_semana}, {hoje.day} de {mes} de {hoje.year}"
 
+# Gera um título curto a partir dos emails
 def gerar_titulo(conteudo):
     resposta = client.messages.create(
         model="claude-opus-4-5",
@@ -33,6 +37,7 @@ Emails:
     )
     return resposta.content[0].text.strip()
 
+# Transforma os emails no roteiro de áudio do dia; devolve (título, roteiro)
 def resumir_newsletters(textos):
     conteudo = "\n\n---\n\n".join(textos)
     titulo = gerar_titulo(conteudo)
@@ -54,18 +59,15 @@ Regras de conteúdo:
 - Vá direto ao fato. Comece cada notícia pelo que aconteceu, não por uma introdução. Bom: "A SpaceX vai abrir capital na bolsa." Ruim: "Vamos começar com uma das notícias mais aguardadas do mercado."
 - NÃO use frases de preenchimento: "vamos começar com", "outro destaque do dia", "mudando de assunto", "ainda sobre", "vale destacar", "uma notícia importante". Passe de uma notícia para outra de forma natural, ou simplesmente comece a próxima.
 - NÃO qualifique as notícias com hype: "importante", "aguardada", "histórica", "impressionante", "incrível".
-- Seja didático: na primeira vez que usar um termo técnico ou de negócios (ex.: IPO, stablecoin, token, kernel, comércio agêntico), explique em poucas palavras, de forma simples, dentro da própria frase. Ex.: "vai fazer um IPO, ou seja, vender ações ao público pela primeira vez".
+- Seja didático: na primeira vez que usar um termo técnico ou de negócios (ex.: IPO, stablecoin, kernel, comércio agêntico), explique em poucas palavras, de forma simples, dentro da própria frase. Ex.: "vai fazer um IPO, ou seja, vender ações ao público pela primeira vez".
 - Dê contexto suficiente para o ouvinte entender por que aquilo importa.
 
 Regras de estilo (texto falado):
 - Escreva como se estivesse falando, não escrevendo. Frases curtas e diretas.
 - Tom profissional e tranquilo. Evite "olha só", "e não para por aí", "que bacana".
+- Escreva as siglas e palavras em inglês de forma CORRETA e natural: "IA", "GPT", "IPO", "CEO", "API", "software", "hardware", "startup", "token". NÃO invente grafias fonéticas (nada de "sóftwear" ou "stártap") — a pronúncia do áudio é tratada depois, à parte.
 - Nunca use markdown, asteriscos, hashtags ou símbolos.
 - Termine com uma frase de encerramento curta e discreta.
-
-Regras de pronúncia (para o áudio):
-- Toda sigla de letras deve ser escrita com as letras separadas por espaço e NUNCA colada a outra palavra: "I A" (não "IA"), "G P T", "C E O", "A P I", "S E C", "U S D C", "N A S D A Q", "G P U". Para "IPO" escreva "I P O" — nunca "OIPO".
-- Palavras em inglês comuns: escreva foneticamente e SEMPRE da mesma forma — "software" como "sóftwear", "hardware" como "hárdware", "startup" como "stártap", "token" como "tôuken".
 
 IMPORTANTE: escreva APENAS o roteiro, sem títulos, sem listas, sem qualquer formatação.
 
@@ -76,33 +78,74 @@ Emails de hoje:
     )
     return titulo, resposta.content[0].text
 
-def gerar_bullets(textos):
+# Lê a resposta do modelo como lista, tolerando ```json e texto em volta
+def _extrair_json(texto):
+    texto = texto.strip()
+    if texto.startswith("```"):
+        texto = re.sub(r"^```(?:json)?", "", texto).strip()
+        texto = re.sub(r"```$", "", texto).strip()
+    if not texto.startswith("["):
+        inicio, fim = texto.find("["), texto.rfind("]")
+        if inicio != -1 and fim != -1:
+            texto = texto[inicio : fim + 1]
+    return json.loads(texto)
+
+
+# Gera um destaque por notícia (emoji, título, resumo e "o que aprender").
+# Devolve [] se o JSON vier inválido, pra não travar o pipeline.
+def gerar_destaques(textos):
     conteudo = "\n\n---\n\n".join(textos)
 
     resposta = client.messages.create(
         model="claude-opus-4-5",
-        max_tokens=300,
+        max_tokens=4096,
         messages=[
             {
                 "role": "user",
-                "content": f"""Com base no conteúdo abaixo, gere exatamente 3 bullets com os destaques mais relevantes do dia.
+                "content": f"""Com base nos emails de newsletters abaixo, identifique TODAS as notícias relevantes do dia e gere um destaque para cada uma.
 
-Formato obrigatório (uma por linha):
-[emoji] [destaque em uma frase curta e direta, máximo 10 palavras]
+Responda APENAS com um array JSON válido (sem texto antes ou depois, sem markdown), no formato exato:
+[
+  {{
+    "emoji": "<um emoji que represente o tema da notícia>",
+    "titulo": "<frase curta e direta, no máximo 10 palavras>",
+    "resumo": "<a notícia explicada do começo ao fim, em 2 a 4 frases curtas, de forma simples e didática>",
+    "aprender": "<a lição ou conceito principal para o leitor lembrar, em 1 frase>"
+  }}
+]
 
 Regras:
-- SEMPRE gere exatamente 3 bullets, qualquer que seja o conteúdo recebido.
-- Se o conteúdo não for "notícia" tradicional (ex.: artigos de opinião, tutoriais, newsletters de gestão), mesmo assim extraia os 3 pontos ou ideias mais importantes e resuma-os no mesmo formato.
-- Nunca explique, justifique, peça desculpa ou diga que não é possível. Responda APENAS com os 3 bullets, nada mais.
-- Escolha um emoji que represente bem o tema de cada bullet.
-- Exemplos: 🤖 para IA, 📈 para mercado, 🏥 para saúde, 🚀 para tecnologia, ⚖️ para política, 💰 para finanças, 🌍 para geopolítica, 💡 para ideias, 📊 para dados, 🛠️ para ferramentas
+- Crie um item para CADA notícia distinta do dia (normalmente entre 4 e 10 itens).
+- Mesmo que o conteúdo não seja notícia tradicional (opinião, tutorial, newsletter de gestão), extraia os pontos ou ideias mais importantes no mesmo formato. Nunca peça desculpa nem diga que não é possível.
+- Escreva em português brasileiro claro e simples. Explique termos técnicos em poucas palavras.
+- O "resumo" deve dar contexto suficiente para entender o que aconteceu e por que importa — direto, sem enrolação e sem hype.
+- O "aprender" é o conceito que fica: o que a pessoa de fato aprende com essa notícia.
+- Escreva siglas e palavras em inglês corretamente (IA, GPT, IPO, software, startup). Não use grafias fonéticas.
+- Não use markdown, asteriscos nem aspas dentro dos textos.
+- Responda SOMENTE com o array JSON.
 
-Conteúdo:
-{conteudo[:3000]}"""
+Emails:
+{conteudo[:8000]}"""
             }
         ]
     )
-    return resposta.content[0].text.strip()
+    try:
+        destaques = _extrair_json(resposta.content[0].text)
+        # Mantém só os itens bem formados, pra nunca exibir vazio no app
+        return [
+            {
+                "emoji": str(d.get("emoji", "📰")),
+                "titulo": str(d.get("titulo", "")).strip(),
+                "resumo": str(d.get("resumo", "")).strip(),
+                "aprender": str(d.get("aprender", "")).strip(),
+            }
+            for d in destaques
+            if isinstance(d, dict) and d.get("titulo")
+        ]
+    except Exception as e:
+        print(f"⚠️ Falha ao gerar destaques (JSON inválido): {e}")
+        return []
+
 
 if __name__ == "__main__":
     from gmail_reader import ler_newsletters
@@ -110,3 +153,6 @@ if __name__ == "__main__":
     titulo, resumo = resumir_newsletters(textos)
     print(f"Título: {titulo}")
     print(resumo[:500])
+    print("\nDestaques:")
+    for d in gerar_destaques(textos):
+        print(f"  {d['emoji']} {d['titulo']}")

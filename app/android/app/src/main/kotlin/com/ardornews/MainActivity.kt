@@ -1,4 +1,4 @@
-package com.example.app
+package com.ardornews
 
 import com.ryanheise.audioservice.AudioServiceActivity
 

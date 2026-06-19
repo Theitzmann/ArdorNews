@@ -11,6 +11,7 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 LIMITE = 4500
 
+# Cria o cliente do Google TTS (via env var ou arquivo de credencial local)
 def criar_cliente_tts():
     credenciais_json = os.getenv("GOOGLE_TTS_CREDENTIALS")
     if credenciais_json:
@@ -30,33 +31,49 @@ def get_output_path():
     hoje = datetime.now().strftime('%Y-%m-%d')
     return os.path.join(BASE_DIR, 'audio', f'{hoje}.mp3')
 
-def limpar_markdown(texto):
+# Tira só o markdown — texto limpo que vai pra transcrição mostrada ao usuário
+def limpar_formatacao(texto):
     texto = re.sub(r'#{1,6}\s*', '', texto)
     texto = re.sub(r'\*\*(.*?)\*\*', r'\1', texto)
     texto = re.sub(r'\*(.*?)\*', r'\1', texto)
     texto = re.sub(r'---+', '', texto)
     texto = re.sub(r'\[.*?\]\(.*?\)', '', texto)
-
-    substituicoes = {
-        'AI': 'Inteligência Artificial',
-        'API': 'A P I',
-        'GPT': 'G P T',
-        'CEO': 'C E O',
-        'IPO': 'I P O',
-        'ML': 'Machine Learning',
-        'startup': 'startap',
-        'startups': 'startaps',
-        'software': 'softuér',
-        'hardware': 'hárdwér',
-        'open source': 'ópen sôrs',
-    }
-    for termo, pronuncia in substituicoes.items():
-        texto = re.sub(rf'\b{termo}\b', pronuncia, texto, flags=re.IGNORECASE)
-
     return texto.strip()
 
+# Siglas lidas letra por letra. Sensível a maiúsculas (senão "IA" pegaria "ia")
+_ACRONIMOS = {
+    'AI': 'Inteligência Artificial',
+    'IA': 'I A',
+    'API': 'A P I',
+    'GPT': 'G P T',
+    'CEO': 'C E O',
+    'IPO': 'I P O',
+    'CPU': 'C P U',
+    'GPU': 'G P U',
+    'ML': 'Machine Learning',
+}
+
+# Palavras em inglês escritas foneticamente pra voz pt-BR pronunciar bem
+_TERMOS_EN = {
+    'startups': 'startaps',
+    'startup': 'startap',
+    'software': 'softuér',
+    'hardware': 'hárdwér',
+    'open source': 'ópen sôrs',
+}
+
+# Limpeza só do áudio: tira markdown e ajusta a pronúncia (não vai pra transcrição)
+def limpar_markdown(texto):
+    texto = limpar_formatacao(texto)
+    for termo, pronuncia in _ACRONIMOS.items():
+        texto = re.sub(rf'\b{termo}\b', pronuncia, texto)
+    for termo, pronuncia in _TERMOS_EN.items():
+        texto = re.sub(rf'\b{termo}\b', pronuncia, texto, flags=re.IGNORECASE)
+    return texto.strip()
+
+# Normaliza números, porcentagens e siglas pra transcrição ficar legível
 def limpar_para_legenda(texto):
-    # Uniformizar "por cento" para "%"
+    # "por cento" vira "%"
     texto = texto.replace(' por cento', ' %')
 
     # Substituições específicas
@@ -74,10 +91,10 @@ def limpar_para_legenda(texto):
     for original, novo in sorted(substituicoes.items(), key=lambda x: len(x[0]), reverse=True):
         texto = texto.replace(original, novo)
 
-    # Siglas com espaços entre letras maiúsculas (ex: O T O F → OTOF)
+    # Junta siglas separadas por espaço (ex: O T O F → OTOF)
     texto = re.sub(r'\b([A-Z])(?: ([A-Z]))+\b', lambda m: m.group(0).replace(' ', ''), texto)
 
-    # Construir dicionário abrangente de números por extenso
+    # Dicionário de números por extenso
     numeros_base = {
         'zero': 0, 'um': 1, 'dois': 2, 'três': 3, 'quatro': 4, 'cinco': 5,
         'seis': 6, 'sete': 7, 'oito': 8, 'nove': 9, 'dez': 10,
@@ -87,9 +104,9 @@ def limpar_para_legenda(texto):
         'sessenta': 60, 'setenta': 70, 'oitenta': 80, 'noventa': 90,
         'cem': 100
     }
-    
+
     mapa_numeros = {k: str(v) for k, v in numeros_base.items()}
-    
+
     dezenas = ['vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa']
     unidades = ['um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove']
     for i, d in enumerate(dezenas):
@@ -97,14 +114,14 @@ def limpar_para_legenda(texto):
         for j, u in enumerate(unidades):
             u_val = j + 1
             mapa_numeros[f"{d} e {u}"] = str(d_val + u_val)
-            
+
     mapa_numeros.update({
         'duzentos': '200', 'trezentos': '300', 'quatrocentos': '400',
         'quinhentos': '500', 'seiscentos': '600', 'setecentos': '700',
         'oitocentos': '800', 'novecentos': '900', 'mil': '1000'
     })
 
-    # Construir mapa de anos (1900 a 2030)
+    # Mapa de anos por extenso (1900 a 2030)
     mapa_anos = {'mil novecentos': '1900', 'dois mil': '2000'}
     for k, v in mapa_numeros.items():
         if v.isdigit() and 1 <= int(v) <= 99:
@@ -112,24 +129,22 @@ def limpar_para_legenda(texto):
         if v.isdigit() and 1 <= int(v) <= 30:
             mapa_anos[f"dois mil e {k}"] = str(2000 + int(v))
 
-    # Converter anos por extenso para algarismos
+    # Anos por extenso → algarismos
     for extenso, algarismo in sorted(mapa_anos.items(), key=lambda x: len(x[0]), reverse=True):
         texto = re.sub(rf'\b{extenso}\b', algarismo, texto)
 
-    # Converter decimais ("X, extenso %") e números inteiros ("extenso %")
+    # Decimais ("X, extenso %") e inteiros ("extenso %") → algarismos
     for extenso, algarismo in sorted(mapa_numeros.items(), key=lambda x: len(x[0]), reverse=True):
-        # Para decimais: adiciona zero à esquerda se < 10
         dec_val = algarismo.zfill(2) if int(algarismo) < 100 else algarismo
         texto = re.sub(rf'(\d+),\s*{extenso}\s*%', rf'\1,{dec_val}%', texto)
-        
-        # Para inteiros com %
         texto = re.sub(rf'\b{extenso}\s*%', rf'{algarismo}%', texto)
 
-    # Remover espaço antes do símbolo de % para manter formatação (ex: "37 %" -> "37%")
+    # Tira o espaço antes do % (ex: "37 %" → "37%")
     texto = re.sub(r'(\d)\s+%', r'\1%', texto)
 
     return texto
 
+# Quebra o texto em partes dentro do limite de caracteres do TTS
 def dividir_texto(texto):
     partes = []
     while len(texto) > LIMITE:
@@ -139,6 +154,7 @@ def dividir_texto(texto):
     partes.append(texto)
     return partes
 
+# Mantém só os 7 áudios mais recentes na pasta local
 def limpar_audios_antigos():
     pasta = os.path.join(BASE_DIR, 'audio')
     arquivos = sorted(os.listdir(pasta))
@@ -147,6 +163,7 @@ def limpar_audios_antigos():
         arquivos.pop(0)
         print(f"🗑️ Áudio antigo removido")
 
+# Gera o MP3 do roteiro com a voz do Google TTS
 def gerar_audio(texto):
     os.makedirs(os.path.join(BASE_DIR, 'audio'), exist_ok=True)
     output_path = get_output_path()
@@ -184,6 +201,5 @@ if __name__ == "__main__":
     from summarizer import resumir_newsletters
     from gmail_reader import ler_newsletters
     textos = ler_newsletters()
-    # resumir_newsletters returns (titulo, resumo_text); gerar_audio takes only the text
     titulo, resumo = resumir_newsletters(textos)
     gerar_audio(resumo)

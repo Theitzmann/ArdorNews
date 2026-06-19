@@ -10,6 +10,7 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 EMAIL = os.getenv("GMAIL_EMAIL")
 PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 
+# Lê as newsletters do dia na caixa de entrada do Gmail
 def ler_newsletters():
     mail = imaplib.IMAP4_SSL("imap.gmail.com")
 

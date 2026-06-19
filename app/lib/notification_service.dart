@@ -15,8 +15,7 @@ class NotificationService {
     const settings = InitializationSettings(android: android);
     await _plugin.initialize(settings);
 
-    // Android 13+ requires explicit permission request at runtime.
-    // Without this, no notifications appear (neither daily nor media controls).
+    // Android 13+ exige pedir permissão de notificação em tempo de execução
     await _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
@@ -49,9 +48,8 @@ matchDateTimeComponents: DateTimeComponents.time,
     await _plugin.cancelAll();
   }
 
-  // Samsung/Android frequently mark the app as "background restricted", which
-  // blocks the 11h alarm receiver from running while the app is closed. These
-  // two helpers let the UI check and request the battery-optimization exemption.
+  // Verifica/pede isenção da otimização de bateria, pra notificação das 11h
+  // chegar mesmo com o app fechado
   static Future<bool> verificarOtimizacaoBateria() async {
     final status = await Permission.ignoreBatteryOptimizations.status;
     return status.isGranted;
