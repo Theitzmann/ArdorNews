@@ -1,15 +1,24 @@
 import asyncio
+import hmac
 import json
+import os
 import re
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import RedirectResponse
 from datetime import datetime
+import storage
+import revenuecat_client
 from storage import (
     listar_audios, url_audio, buscar_titulo, buscar_transcricao,
     buscar_bullets, buscar_destaques, buscar_emoji, http_client,
 )
+
+# Segredo configurado no painel da RevenueCat; comparado com o header
+# Authorization de cada webhook para confirmar que veio mesmo deles.
+# (Phase B preenche o valor real no .env.)
+REVENUECAT_WEBHOOK_SECRET = os.getenv("REVENUECAT_WEBHOOK_SECRET")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -88,3 +97,43 @@ async def listar():
     audios = await asyncio.to_thread(listar_audios)
     resultado = await asyncio.gather(*[buscar_info_audio(nome) for nome in audios])
     return {"audios": list(resultado)}
+
+# Webhook da RevenueCat: dispara quando a assinatura de alguém muda de estado.
+# Não interpretamos cada tipo de evento — usamos como gatilho para buscar o
+# estado canônico do assinante na API da RevenueCat e salvá-lo.
+@app.post("/webhooks/revenuecat")
+async def webhook_revenuecat(request: Request):
+    # Confirma que a requisição veio mesmo da RevenueCat.
+    # compare_digest evita timing attacks na comparação do segredo.
+    auth_header = request.headers.get("Authorization", "")
+    esperado = f"Bearer {REVENUECAT_WEBHOOK_SECRET}"
+    if not hmac.compare_digest(auth_header, esperado):
+        raise HTTPException(status_code=401, detail="Não autorizado")
+
+    body = await request.json()
+    event = body.get("event", {})
+    app_user_id = event.get("app_user_id")
+    event_type = event.get("type")
+    event_id = event.get("id")
+
+    print(f"📩 Webhook RevenueCat recebido: {event_type} ({event_id}) para {app_user_id}")
+
+    if not app_user_id:
+        # Sem saber de quem é o evento, não há o que fazer
+        return {"status": "ignored"}
+
+    try:
+        estado = await revenuecat_client.buscar_estado_assinante(app_user_id)
+        storage.atualizar_assinante(
+            user_id=app_user_id,
+            status=estado["status"],
+            expires_at=estado["expires_at"],
+            revenuecat_id=app_user_id,
+        )
+    except Exception as e:
+        print(f"❌ Erro ao processar webhook: {e}")
+        # Ainda devolvemos 200 para a RevenueCat não reenviar infinitamente um
+        # erro transitório que já registramos — investigamos manualmente depois.
+        return {"status": "error_logged"}
+
+    return {"status": "ok"}

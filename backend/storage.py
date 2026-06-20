@@ -156,3 +156,22 @@ def apagar_edicoes_antigas(meses: int = 3):
             apagados += 1
 
     print(f"✅ Limpeza concluída: {apagados} edições apagadas.")
+
+def atualizar_assinante(user_id: str, status: str, expires_at, revenuecat_id: str = None):
+    """
+    Faz upsert do estado do assinante na tabela `subscribers`.
+    Chamado pelo webhook da RevenueCat após buscar o estado canônico.
+    """
+    dados = {
+        "id": user_id,
+        "status": status,
+        "expires_at": expires_at,
+        # O PostgREST trata valores do corpo como literais (não avalia SQL),
+        # então mandamos o timestamp já calculado em vez de "now()".
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if revenuecat_id:
+        dados["revenuecat_id"] = revenuecat_id
+
+    supabase.table("subscribers").upsert(dados).execute()
+    print(f"☁️ Assinante atualizado: {user_id} → {status}")
