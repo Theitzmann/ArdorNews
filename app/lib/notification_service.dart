@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -23,25 +25,50 @@ class NotificationService {
   }
 
   static Future<void> agendarNotificacaoDiaria() async {
-    await _plugin.zonedSchedule(
-      0,
-      '📡 Ardor News',
-      'Suas notícias de hoje estão prontas!',
-      _proximasOnzeHoras(),
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'ardor_daily',
-          'Notícias Diárias',
-          channelDescription: 'Notificação diária das notícias',
-          importance: Importance.high,
-          priority: Priority.high,
+    // Android 12+ trata SCHEDULE_EXACT_ALARM como permissão revogável;
+    // pedimos antes de agendar com horário exato.
+    final temPermissao = await Permission.scheduleExactAlarm.isGranted;
+    if (!temPermissao) {
+      await Permission.scheduleExactAlarm.request();
+    }
+
+    Future<void> agendar(AndroidScheduleMode modo) {
+      return _plugin.zonedSchedule(
+        0,
+        '📡 Ardor News',
+        'Suas notícias de hoje estão prontas!',
+        _proximasOnzeHoras(),
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'ardor_daily',
+            'Notícias Diárias',
+            channelDescription: 'Notificação diária das notícias',
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
         ),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-uiLocalNotificationDateInterpretation:
-    UILocalNotificationDateInterpretation.absoluteTime,
-matchDateTimeComponents: DateTimeComponents.time,
-    );
+        androidScheduleMode: modo,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    }
+
+    try {
+      await agendar(AndroidScheduleMode.exactAllowWhileIdle);
+    } on PlatformException catch (e) {
+      if (e.code == 'exact_alarms_not_permitted') {
+        // Permissão de alarme exato negada: agenda mesmo assim, com horário
+        // aproximado — menos preciso, mas melhor do que nenhuma notificação.
+        debugPrint(
+          'Alarme exato não permitido; agendando com horário aproximado '
+          '(inexactAllowWhileIdle).',
+        );
+        await agendar(AndroidScheduleMode.inexactAllowWhileIdle);
+      } else {
+        rethrow;
+      }
+    }
   }
 
   static Future<void> cancelarNotificacoes() async {
